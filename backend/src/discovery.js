@@ -32,13 +32,26 @@ function listDirs(dirPath) {
 function scanProjects() {
   const projects = [];
 
-  for (const entry of listDirs(DOCKER_ROOT)) {
-    if (IGNORED_NAMES.has(entry.name)) continue;
+  if (!fs.existsSync(DOCKER_ROOT)) {
+    console.error(`[discovery] DOCKER_ROOT "${DOCKER_ROOT}" no existe (¿falta el bind mount de /docker en el contenedor?)`);
+    return projects;
+  }
+
+  const topLevel = listDirs(DOCKER_ROOT);
+  console.error(`[discovery] escaneando ${DOCKER_ROOT}, ${topLevel.length} carpeta(s) encontradas: [${topLevel.map((e) => e.name).join(', ')}]`);
+
+  for (const entry of topLevel) {
+    if (IGNORED_NAMES.has(entry.name)) {
+      console.error(`[discovery] "${entry.name}" ignorado (IGNORED_NAMES)`);
+      continue;
+    }
 
     if (GROUPED_DIRS[entry.name]) {
       const groupRoot = path.join(DOCKER_ROOT, entry.name);
       const type = GROUPED_DIRS[entry.name];
-      for (const sub of listDirs(groupRoot)) {
+      const subDirs = listDirs(groupRoot);
+      console.error(`[discovery] "${entry.name}/" es carpeta agrupada (tipo ${type}), ${subDirs.length} subcarpeta(s): [${subDirs.map((e) => e.name).join(', ')}]`);
+      for (const sub of subDirs) {
         const projectPath = path.join(groupRoot, sub.name);
         if (hasComposeFile(projectPath)) {
           projects.push({
@@ -46,6 +59,8 @@ function scanProjects() {
             type,
             path: projectPath,
           });
+        } else {
+          console.error(`[discovery] "${entry.name}/${sub.name}" descartado: no tiene docker-compose.yml en ${projectPath}`);
         }
       }
       continue;
@@ -54,9 +69,12 @@ function scanProjects() {
     const projectPath = path.join(DOCKER_ROOT, entry.name);
     if (hasComposeFile(projectPath)) {
       projects.push({ name: entry.name, type: 'fullstack', path: projectPath });
+    } else {
+      console.error(`[discovery] "${entry.name}" descartado: no tiene docker-compose.yml en ${projectPath}`);
     }
   }
 
+  console.error(`[discovery] resultado final: ${projects.length} proyecto(s) desplegable(s)`);
   return projects.sort((a, b) => a.name.localeCompare(b.name));
 }
 
