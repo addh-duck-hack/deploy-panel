@@ -4,7 +4,7 @@ const path = require('path');
 const DOCKER_ROOT = process.env.DOCKER_ROOT || '/docker';
 
 // Carpetas bajo /docker que agrupan proyectos de un tipo particular
-// en vez de ser ellas mismas un proyecto (ver docker-compose.yml de cada uno).
+// en vez de ser ellas mismas un proyecto (ver docker-compose.yml/.yaml de cada uno).
 const GROUPED_DIRS = {
   staticSite: 'static',
   wordpress: 'wordpress',
@@ -13,8 +13,10 @@ const GROUPED_DIRS = {
 // Nombres que nunca deben ofrecerse como "proyecto" desplegable.
 const IGNORED_NAMES = new Set(['deploy-panel']);
 
+const COMPOSE_FILENAMES = ['docker-compose.yml', 'docker-compose.yaml'];
+
 function hasComposeFile(dirPath) {
-  return fs.existsSync(path.join(dirPath, 'docker-compose.yml'));
+  return COMPOSE_FILENAMES.some((filename) => fs.existsSync(path.join(dirPath, filename)));
 }
 
 function listDirs(dirPath) {
@@ -60,7 +62,7 @@ function scanProjects() {
             path: projectPath,
           });
         } else {
-          console.error(`[discovery] "${entry.name}/${sub.name}" descartado: no tiene docker-compose.yml en ${projectPath}`);
+          console.error(`[discovery] "${entry.name}/${sub.name}" descartado: no tiene docker-compose.yml/.yaml en ${projectPath}`);
         }
       }
       continue;
@@ -70,7 +72,7 @@ function scanProjects() {
     if (hasComposeFile(projectPath)) {
       projects.push({ name: entry.name, type: 'fullstack', path: projectPath });
     } else {
-      console.error(`[discovery] "${entry.name}" descartado: no tiene docker-compose.yml en ${projectPath}`);
+      console.error(`[discovery] "${entry.name}" descartado: no tiene docker-compose.yml/.yaml en ${projectPath}`);
     }
   }
 
