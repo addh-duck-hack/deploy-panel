@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deploy Panel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="gate" class="gate">
+    <div class="gate-box">
+      <h1>Deploy Panel</h1>
+      <p>Ingresa el token de acceso</p>
+      <input id="tokenInput" type="password" placeholder="Token" autocomplete="off" />
+      <button id="tokenSubmit">Entrar</button>
+      <p id="gateError" class="error"></p>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header>
+      <h1>Deploy Panel</h1>
+      <button id="logout">Salir</button>
+    </header>
+
+    <main>
+      <section id="projectList" class="project-list"></section>
+    </main>
+
+    <div id="logModal" class="log-modal hidden">
+      <div class="log-box">
+        <div class="log-header">
+          <span id="logTitle"></span>
+          <span id="logStatus" class="status"></span>
+          <button id="logClose">Cerrar</button>
+        </div>
+        <pre id="logOutput"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

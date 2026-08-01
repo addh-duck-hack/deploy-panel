@@ -1,0 +1,15 @@
+{
+  "name": "deploy-panel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Panel web on-demand para desplegar proyectos docker-compose vía git pull + rebuild",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^7.1.0"
+  }
+}

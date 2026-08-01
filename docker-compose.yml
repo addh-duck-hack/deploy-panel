@@ -1,0 +1,17 @@
+version: "3.7"
+services:
+  deploy-panel:
+    build: ./backend
+    container_name: deploy-panel
+    restart: always
+    environment:
+      - DEPLOY_TOKEN=${DEPLOY_TOKEN}
+    volumes:
+      - /docker:/docker
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - npm
+
+networks:
+  npm:
+    external: true
