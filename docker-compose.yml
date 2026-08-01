@@ -7,7 +7,7 @@ services:
     environment:
       - DEPLOY_TOKEN=${DEPLOY_TOKEN}
     volumes:
-      - /docker:/docker
+      - /home/jaco/docker:/docker
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - npm
