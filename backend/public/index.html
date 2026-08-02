@@ -4,11 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Deploy Panel</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="gate" class="gate">
     <div class="gate-box">
+      <img src="icon.svg" alt="" class="gate-icon" width="56" height="56" />
       <h1>Deploy Panel</h1>
       <p>Ingresa el token de acceso</p>
       <input id="tokenInput" type="password" placeholder="Token" autocomplete="off" />
@@ -19,7 +24,10 @@
 
   <div id="app" class="app hidden">
     <header>
-      <h1>Deploy Panel</h1>
+      <button id="homeBtn" class="brand">
+        <img src="icon.svg" alt="" width="32" height="32" />
+        <span>Deploy Panel</span>
+      </button>
       <button id="logout">Salir</button>
     </header>
 

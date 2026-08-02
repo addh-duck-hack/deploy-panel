@@ -1,22 +1,24 @@
 :root {
-  color-scheme: light dark;
-  --bg: #0f1115;
-  --panel: #171a21;
-  --border: #2a2e37;
-  --text: #e8eaed;
-  --muted: #9aa1ac;
-  --accent: #4f8cff;
-  --danger: #ff5d5d;
-  --success: #3ecf8e;
+  color-scheme: dark;
+  --bg: #0B0C0E;
+  --panel: #0A2600;
+  --border: #134001;
+  --text: #9AF415;
+  --muted: #378D10;
+  --accent: #378D10;
+  --accent-bright: #9AF415;
+  --danger: #ff4d4d;
+  --success: #9AF415;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Share Tech Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background: var(--bg);
   color: var(--text);
+  text-shadow: 0 0 2px rgba(154, 244, 21, 0.25);
 }
 
 .hidden { display: none !important; }
@@ -31,30 +33,51 @@ body {
 .gate-box {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   padding: 2rem;
   width: min(90vw, 360px);
   text-align: center;
+  box-shadow: 0 0 24px rgba(154, 244, 21, 0.08);
+}
+
+.gate-icon {
+  display: block;
+  margin: 0 auto 1rem;
+  filter: drop-shadow(0 0 6px rgba(154, 244, 21, 0.25));
 }
 
 .gate-box input {
   width: 100%;
   padding: 0.6rem;
   margin: 1rem 0 0.5rem;
-  border-radius: 8px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
+  font-family: inherit;
+}
+
+.gate-box input:focus {
+  outline: none;
+  border-color: var(--accent-bright);
 }
 
 .gate-box button, header button, .project-btn, .log-header button {
   cursor: pointer;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
   padding: 0.6rem 1rem;
   font-size: 0.95rem;
+  font-family: inherit;
   background: var(--accent);
-  color: white;
+  color: var(--bg);
+  text-shadow: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.gate-box button:hover, header button:hover, .project-btn:hover:not(:disabled), .log-header button:hover {
+  background: var(--accent-bright);
+  color: var(--bg);
 }
 
 .error { color: var(--danger); min-height: 1.2em; }
@@ -67,6 +90,24 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1.3rem;
+  cursor: pointer;
+  text-shadow: 0 0 2px rgba(154, 244, 21, 0.25);
+}
+
+.brand img { filter: drop-shadow(0 0 4px rgba(154, 244, 21, 0.2)); }
+
+.brand:hover span { color: var(--accent-bright); }
+
 main {
   padding: 1.5rem;
   max-width: 900px;
@@ -77,7 +118,11 @@ main {
   font-size: 1rem;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
+}
+
+.group h2::before {
+  content: "> ";
 }
 
 .grid {
@@ -91,6 +136,7 @@ main {
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
+  text-shadow: 0 0 2px rgba(154, 244, 21, 0.25);
   text-align: left;
   padding: 0.9rem 1rem;
 }
@@ -103,7 +149,7 @@ main {
 .log-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -112,11 +158,12 @@ main {
 .log-box {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 4px;
   width: min(90vw, 720px);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 0 32px rgba(154, 244, 21, 0.1);
 }
 
 .log-header {
@@ -138,6 +185,7 @@ main {
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: "Share Tech Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.85rem;
+  color: var(--text);
 }

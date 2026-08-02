@@ -13,6 +13,7 @@ const tokenSubmit = document.getElementById('tokenSubmit');
 const gateError = document.getElementById('gateError');
 const projectList = document.getElementById('projectList');
 const logoutBtn = document.getElementById('logout');
+const homeBtn = document.getElementById('homeBtn');
 
 const logModal = document.getElementById('logModal');
 const logTitle = document.getElementById('logTitle');
@@ -82,6 +83,11 @@ tokenInput.addEventListener('keydown', (e) => {
 logoutBtn.addEventListener('click', () => {
   clearToken();
   showGate();
+});
+
+homeBtn.addEventListener('click', () => {
+  logModal.classList.add('hidden');
+  loadProjects();
 });
 
 function renderProjects(projects) {
