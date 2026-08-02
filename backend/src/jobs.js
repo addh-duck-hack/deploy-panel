@@ -89,8 +89,8 @@ function runCommand(job, cmd, args) {
   });
 }
 
-async function runDeploy(job) {
-  for (const [cmd, args] of DEPLOY_STEPS) {
+async function runSteps(job, steps, successMessage) {
+  for (const [cmd, args] of steps) {
     emit(job, `\n$ ${cmd} ${args.join(' ')}\n`);
     const code = await runCommand(job, cmd, args);
     if (code !== 0) {
@@ -99,11 +99,11 @@ async function runDeploy(job) {
       return;
     }
   }
-  emit(job, '\n✔ Deploy completado con éxito\n');
+  emit(job, `\n✔ ${successMessage}\n`);
   finish(job, 'success');
 }
 
-function startDeploy(project) {
+function startJob(project, steps, successMessage) {
   const job = {
     id: crypto.randomUUID(),
     streamToken: crypto.randomBytes(24).toString('hex'),
@@ -115,12 +115,26 @@ function startDeploy(project) {
   jobs.set(job.id, job);
   locks.add(project.name);
 
-  runDeploy(job).catch((err) => {
+  runSteps(job, steps, successMessage).catch((err) => {
     emit(job, `\n✖ Error inesperado: ${err.message}\n`);
     finish(job, 'failed');
   });
 
   return job;
+}
+
+function startDeploy(project) {
+  return startJob(project, DEPLOY_STEPS, 'Deploy completado con éxito');
+}
+
+// Solo mueve el checkout de la rama (fetch + checkout) — no toca los
+// contenedores. El usuario aplica el cambio con "Actualizar" por separado.
+function startCheckout(project, branch) {
+  const steps = [
+    ['git', ['fetch']],
+    ['git', ['checkout', branch]],
+  ];
+  return startJob(project, steps, `Rama cambiada a "${branch}"`);
 }
 
 function getJob(jobId) {
@@ -129,6 +143,7 @@ function getJob(jobId) {
 
 module.exports = {
   startDeploy,
+  startCheckout,
   getJob,
   isLocked,
   isAtCapacity,

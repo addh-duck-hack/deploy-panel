@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
@@ -5,7 +6,16 @@ const rateLimit = require('express-rate-limit');
 
 const { requireAuth, safeEqual } = require('./src/auth');
 const { scanProjects } = require('./src/discovery');
-const { startDeploy, getJob, isLocked, isAtCapacity } = require('./src/jobs');
+const { startDeploy, startCheckout, getJob, isLocked, isAtCapacity } = require('./src/jobs');
+const { getCurrentBranch } = require('./src/git');
+
+// Nombres de rama válidos para git checkout/fetch: sin espacios, sin ir
+// como flag (nada de "-x"), sin ".." para evitar refs raros.
+const BRANCH_NAME_RE = /^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]+$/;
+
+function findProject(name) {
+  return scanProjects().find((p) => p.name === name);
+}
 
 if (!process.env.DEPLOY_TOKEN) {
   console.error('DEPLOY_TOKEN no está definido. Configúralo en el .env antes de arrancar.');
@@ -46,13 +56,88 @@ app.get('/api/projects', requireAuth, (req, res) => {
   res.json({ projects });
 });
 
+app.post('/api/projects/:name(.*)/branch', requireAuth, (req, res) => {
+  const project = findProject(req.params.name);
+  if (!project) {
+    return res.status(404).json({ error: 'Proyecto no reconocido' });
+  }
+
+  const { branch } = req.body || {};
+  if (typeof branch !== 'string' || !BRANCH_NAME_RE.test(branch)) {
+    return res.status(400).json({ error: 'Nombre de rama inválido' });
+  }
+
+  if (isLocked(project.name)) {
+    return res.status(409).json({ error: 'Ya hay una operación en curso para este proyecto' });
+  }
+  if (isAtCapacity()) {
+    return res.status(429).json({ error: 'Ya hay demasiadas operaciones corriendo en paralelo, intenta de nuevo en un momento' });
+  }
+
+  const job = startCheckout(project, branch);
+  res.json({ jobId: job.id, streamToken: job.streamToken });
+});
+
+app.get('/api/projects/:name(.*)/env', requireAuth, async (req, res) => {
+  const project = findProject(req.params.name);
+  if (!project) {
+    return res.status(404).json({ error: 'Proyecto no reconocido' });
+  }
+
+  const envPath = path.join(project.path, '.env');
+  if (!fs.existsSync(envPath)) {
+    return res.status(404).json({ error: 'Este proyecto no tiene .env' });
+  }
+
+  const content = await fs.promises.readFile(envPath, 'utf8');
+  res.json({ content });
+});
+
+app.post('/api/projects/:name(.*)/env', requireAuth, async (req, res) => {
+  const project = findProject(req.params.name);
+  if (!project) {
+    return res.status(404).json({ error: 'Proyecto no reconocido' });
+  }
+
+  const envPath = path.join(project.path, '.env');
+  if (!fs.existsSync(envPath)) {
+    return res.status(404).json({ error: 'Este proyecto no tiene .env' });
+  }
+
+  const { content } = req.body || {};
+  if (typeof content !== 'string') {
+    return res.status(400).json({ error: 'Falta "content" en el body' });
+  }
+
+  await fs.promises.writeFile(envPath, content, 'utf8');
+  res.json({ ok: true });
+});
+
+app.get('/api/projects/:name(.*)', requireAuth, async (req, res) => {
+  const project = findProject(req.params.name);
+  if (!project) {
+    return res.status(404).json({ error: 'Proyecto no reconocido' });
+  }
+
+  const branch = await getCurrentBranch(project.path);
+  const hasEnv = fs.existsSync(path.join(project.path, '.env'));
+
+  res.json({
+    name: project.name,
+    type: project.type,
+    branch,
+    locked: isLocked(project.name),
+    hasEnv,
+  });
+});
+
 app.post('/api/deploy', requireAuth, (req, res) => {
   const { project: projectName } = req.body || {};
   if (!projectName) {
     return res.status(400).json({ error: 'Falta "project" en el body' });
   }
 
-  const project = scanProjects().find((p) => p.name === projectName);
+  const project = findProject(projectName);
   if (!project) {
     return res.status(404).json({ error: 'Proyecto no reconocido' });
   }
@@ -96,6 +181,14 @@ app.get('/api/deploy/:jobId/stream', (req, res) => {
 
   job.listeners.add(res);
   req.on('close', () => job.listeners.delete(res));
+});
+
+// SPA fallback: cualquier ruta que no sea /api/* y no matchee un archivo
+// estático sirve el mismo index.html (login, "/", "/<proyecto>",
+// "/staticSite/<proyecto>", etc). app.js decide qué pintar según el path.
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

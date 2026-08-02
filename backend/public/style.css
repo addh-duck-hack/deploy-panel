@@ -62,7 +62,7 @@ body {
   border-color: var(--accent-bright);
 }
 
-.gate-box button, header button, .project-btn, .log-header button {
+.gate-box button, header button, .project-btn, .log-header button, .action-btn, .back-btn {
   cursor: pointer;
   border: 1px solid var(--border);
   border-radius: 2px;
@@ -75,9 +75,31 @@ body {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.gate-box button:hover, header button:hover, .project-btn:hover:not(:disabled), .log-header button:hover {
+.gate-box button:hover, header button:hover, .project-btn:hover:not(:disabled), .log-header button:hover,
+.action-btn:hover:not(:disabled), .back-btn:hover {
   background: var(--accent-bright);
   color: var(--bg);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn.primary {
+  background: var(--accent-bright);
+}
+
+.back-btn {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.back-btn:hover {
+  background: var(--panel);
+  color: var(--accent-bright);
 }
 
 .error { color: var(--danger); min-height: 1.2em; }
@@ -146,6 +168,139 @@ main {
   cursor: not-allowed;
 }
 
+/* --- Detalle de proyecto --- */
+
+.detail-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.detail-head h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  word-break: break-all;
+}
+
+.detail-head h2::before {
+  content: "> ";
+  color: var(--muted);
+}
+
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 0.15rem 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+}
+
+.detail-branch strong {
+  color: var(--text);
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.branch-switch {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.branch-switch input {
+  padding: 0.6rem 0.75rem;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  width: 180px;
+}
+
+.branch-switch input:focus {
+  outline: none;
+  border-color: var(--accent-bright);
+}
+
+.terminal {
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.terminal-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+#terminalOutput {
+  margin: 0;
+  padding: 1rem;
+  min-height: 220px;
+  max-height: 50vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Share Tech Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.env-textarea {
+  flex: 1;
+  min-height: 320px;
+  margin: 0;
+  padding: 1rem;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  resize: vertical;
+  background: #000;
+  color: var(--text);
+  font-family: "Share Tech Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  white-space: pre;
+}
+
+.env-textarea:focus { outline: none; }
+
+.env-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.env-footer .error { margin: 0; }
+
 .log-modal {
   position: fixed;
   inset: 0;
@@ -178,14 +333,3 @@ main {
 .status.running { color: var(--muted); }
 .status.success { color: var(--success); }
 .status.failed { color: var(--danger); }
-
-#logOutput {
-  margin: 0;
-  padding: 1rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: "Share Tech Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-  color: var(--text);
-}

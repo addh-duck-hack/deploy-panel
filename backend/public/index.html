@@ -32,17 +32,55 @@
     </header>
 
     <main>
-      <section id="projectList" class="project-list"></section>
+      <section id="projectListView">
+        <section id="projectList" class="project-list"></section>
+      </section>
+
+      <section id="projectDetailView" class="hidden">
+        <button id="backBtn" class="back-btn">&larr; REGRESAR</button>
+
+        <div class="detail-head">
+          <h2 id="detailName"></h2>
+          <div class="detail-meta">
+            <span id="detailType" class="badge"></span>
+            <span class="detail-branch">rama: <strong id="detailBranch">&mdash;</strong></span>
+          </div>
+        </div>
+
+        <p id="detailError" class="error"></p>
+
+        <div id="detailActions" class="detail-actions">
+          <button id="detailDeployBtn" class="action-btn primary">Actualizar (pull + rebuild)</button>
+
+          <div class="branch-switch">
+            <input id="branchInput" type="text" placeholder="nombre-de-rama" autocomplete="off" spellcheck="false" />
+            <button id="branchSwitchBtn" class="action-btn">Cambiar rama</button>
+          </div>
+
+          <button id="envBtn" class="action-btn hidden">Editar .env</button>
+        </div>
+
+        <div id="terminalWrap" class="terminal">
+          <div class="terminal-header">
+            <span>salida</span>
+            <span id="terminalStatus" class="status"></span>
+          </div>
+          <pre id="terminalOutput">$ _</pre>
+        </div>
+      </section>
     </main>
 
-    <div id="logModal" class="log-modal hidden">
+    <div id="envModal" class="log-modal hidden">
       <div class="log-box">
         <div class="log-header">
-          <span id="logTitle"></span>
-          <span id="logStatus" class="status"></span>
-          <button id="logClose">Cerrar</button>
+          <span>.env &mdash; <span id="envModalName"></span></span>
+          <button id="envClose">Cerrar</button>
         </div>
-        <pre id="logOutput"></pre>
+        <textarea id="envTextarea" class="env-textarea" spellcheck="false" autocomplete="off"></textarea>
+        <div class="env-footer">
+          <span id="envError" class="error"></span>
+          <button id="envSaveBtn" class="action-btn primary">Guardar</button>
+        </div>
       </div>
     </div>
   </div>

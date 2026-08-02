@@ -11,15 +11,35 @@ const app = document.getElementById('app');
 const tokenInput = document.getElementById('tokenInput');
 const tokenSubmit = document.getElementById('tokenSubmit');
 const gateError = document.getElementById('gateError');
-const projectList = document.getElementById('projectList');
 const logoutBtn = document.getElementById('logout');
 const homeBtn = document.getElementById('homeBtn');
 
-const logModal = document.getElementById('logModal');
-const logTitle = document.getElementById('logTitle');
-const logStatus = document.getElementById('logStatus');
-const logOutput = document.getElementById('logOutput');
-const logClose = document.getElementById('logClose');
+const projectListView = document.getElementById('projectListView');
+const projectList = document.getElementById('projectList');
+
+const projectDetailView = document.getElementById('projectDetailView');
+const backBtn = document.getElementById('backBtn');
+const detailName = document.getElementById('detailName');
+const detailType = document.getElementById('detailType');
+const detailBranch = document.getElementById('detailBranch');
+const detailError = document.getElementById('detailError');
+const detailActions = document.getElementById('detailActions');
+const detailDeployBtn = document.getElementById('detailDeployBtn');
+const branchInput = document.getElementById('branchInput');
+const branchSwitchBtn = document.getElementById('branchSwitchBtn');
+const envBtn = document.getElementById('envBtn');
+const terminalWrap = document.getElementById('terminalWrap');
+const terminalStatus = document.getElementById('terminalStatus');
+const terminalOutput = document.getElementById('terminalOutput');
+
+const envModal = document.getElementById('envModal');
+const envModalName = document.getElementById('envModalName');
+const envTextarea = document.getElementById('envTextarea');
+const envError = document.getElementById('envError');
+const envSaveBtn = document.getElementById('envSaveBtn');
+const envClose = document.getElementById('envClose');
+
+let currentProject = null;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -44,7 +64,55 @@ async function apiFetch(url, options = {}) {
   return res;
 }
 
-function showApp() {
+// --- Rutas de proyecto: el nombre puede traer "/" (ej. "staticSite/mi-sitio"),
+// así que codificamos cada segmento por separado en vez de todo el string.
+function projectNameToPath(name) {
+  return `/${name.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+function pathToProjectName(pathname) {
+  return pathname.split('/').filter(Boolean).map(decodeURIComponent).join('/');
+}
+
+function projectApiUrl(name, suffix = '') {
+  return `/api/projects/${name.split('/').map(encodeURIComponent).join('/')}${suffix}`;
+}
+
+// --- Router ---------------------------------------------------------------
+
+function setPath(path) {
+  if (location.pathname !== path) {
+    history.replaceState(null, '', path);
+  }
+}
+
+function navigate(path) {
+  if (location.pathname !== path) {
+    history.pushState(null, '', path);
+  }
+  render();
+}
+
+function render() {
+  const path = location.pathname;
+  if (path === '/' || path === '') {
+    showProjectListView();
+  } else {
+    showProjectDetailView(pathToProjectName(path));
+  }
+}
+
+window.addEventListener('popstate', () => {
+  if (getToken()) {
+    render();
+  } else {
+    showGate();
+  }
+});
+
+// --- Gate / shell -----------------------------------------------------------
+
+function showAppShell() {
   gate.classList.add('hidden');
   app.classList.remove('hidden');
 }
@@ -53,9 +121,10 @@ function showGate(message) {
   app.classList.add('hidden');
   gate.classList.remove('hidden');
   gateError.textContent = message || '';
+  setPath('/login');
 }
 
-async function tryEnter(token) {
+async function tryEnter(token, { redirectHome = false } = {}) {
   setToken(token);
   const res = await apiFetch('/api/projects');
   if (res.status === 401) {
@@ -67,13 +136,17 @@ async function tryEnter(token) {
     showGate('Error al conectar con el panel');
     return;
   }
-  showApp();
-  await loadProjects();
+  showAppShell();
+  if (redirectHome) {
+    navigate('/');
+  } else {
+    render();
+  }
 }
 
 tokenSubmit.addEventListener('click', () => {
   const value = tokenInput.value.trim();
-  if (value) tryEnter(value);
+  if (value) tryEnter(value, { redirectHome: true });
 });
 
 tokenInput.addEventListener('keydown', (e) => {
@@ -85,10 +158,17 @@ logoutBtn.addEventListener('click', () => {
   showGate();
 });
 
-homeBtn.addEventListener('click', () => {
-  logModal.classList.add('hidden');
+homeBtn.addEventListener('click', () => navigate('/'));
+backBtn.addEventListener('click', () => navigate('/'));
+
+// --- Lista de proyectos -----------------------------------------------------
+
+function showProjectListView() {
+  currentProject = null;
+  projectDetailView.classList.add('hidden');
+  projectListView.classList.remove('hidden');
   loadProjects();
-});
+}
 
 function renderProjects(projects) {
   projectList.innerHTML = '';
@@ -108,10 +188,8 @@ function renderProjects(projects) {
     for (const project of items) {
       const btn = document.createElement('button');
       btn.className = 'project-btn';
-      btn.textContent = project.name;
-      btn.disabled = project.locked;
-      if (project.locked) btn.textContent += ' (desplegando…)';
-      btn.addEventListener('click', () => deploy(project.name, btn));
+      btn.textContent = project.name + (project.locked ? ' (desplegando…)' : '');
+      btn.addEventListener('click', () => navigate(projectNameToPath(project.name)));
       grid.appendChild(btn);
     }
 
@@ -127,70 +205,191 @@ async function loadProjects() {
   renderProjects(projects);
 }
 
-async function deploy(projectName, btn) {
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  btn.textContent = `${projectName} (iniciando…)`;
+// --- Detalle de proyecto -----------------------------------------------------
 
-  const res = await apiFetch('/api/deploy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ project: projectName }),
-  });
+function resetTerminal() {
+  terminalOutput.textContent = '$ _';
+  terminalStatus.textContent = '';
+  terminalStatus.className = 'status';
+}
 
-  if (res.status === 409) {
-    btn.textContent = `${projectName} (ya en curso)`;
+function renderProjectDetail(project) {
+  detailName.textContent = project.name;
+  detailType.textContent = TYPE_LABELS[project.type] || project.type;
+  detailBranch.textContent = project.branch || '(detached)';
+  envBtn.classList.toggle('hidden', !project.hasEnv);
+  detailDeployBtn.disabled = project.locked;
+  branchSwitchBtn.disabled = project.locked;
+}
+
+async function showProjectDetailView(name) {
+  currentProject = null;
+  projectListView.classList.add('hidden');
+  projectDetailView.classList.remove('hidden');
+
+  detailName.textContent = name;
+  detailType.textContent = '';
+  detailBranch.textContent = '—';
+  detailError.textContent = '';
+  branchInput.value = '';
+  envBtn.classList.add('hidden');
+  detailActions.classList.remove('hidden');
+  terminalWrap.classList.remove('hidden');
+  resetTerminal();
+
+  const res = await apiFetch(projectApiUrl(name));
+  if (res.status === 404) {
+    detailError.textContent = 'Proyecto no encontrado';
+    detailActions.classList.add('hidden');
+    terminalWrap.classList.add('hidden');
     return;
   }
   if (!res.ok) {
-    btn.disabled = false;
-    btn.textContent = originalText;
-    alert('No se pudo iniciar el deploy');
+    detailError.textContent = 'Error al cargar el proyecto';
+    detailActions.classList.add('hidden');
+    terminalWrap.classList.add('hidden');
+    return;
+  }
+
+  currentProject = await res.json();
+  renderProjectDetail(currentProject);
+}
+
+async function refreshProjectDetail() {
+  if (!currentProject) return;
+  const res = await apiFetch(projectApiUrl(currentProject.name));
+  if (!res.ok) return;
+  currentProject = await res.json();
+  renderProjectDetail(currentProject);
+}
+
+function setDetailButtonsDisabled(disabled) {
+  detailDeployBtn.disabled = disabled;
+  branchSwitchBtn.disabled = disabled;
+}
+
+async function runDetailAction(url, body, errorFallback) {
+  if (!currentProject) return;
+  detailError.textContent = '';
+  setDetailButtonsDisabled(true);
+  terminalOutput.textContent = '';
+  terminalStatus.textContent = 'en curso';
+  terminalStatus.className = 'status running';
+
+  const res = await apiFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+
+  if (res.status === 409) {
+    detailError.textContent = 'Ya hay una operación en curso para este proyecto';
+    resetTerminal();
+    setDetailButtonsDisabled(false);
+    return;
+  }
+  if (res.status === 429) {
+    detailError.textContent = 'Demasiadas operaciones en paralelo, intenta de nuevo en un momento';
+    resetTerminal();
+    setDetailButtonsDisabled(false);
+    return;
+  }
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    detailError.textContent = errBody.error || errorFallback;
+    resetTerminal();
+    setDetailButtonsDisabled(false);
     return;
   }
 
   const { jobId, streamToken } = await res.json();
-  openLogModal(projectName);
-  streamLogs(jobId, streamToken, (status) => {
-    btn.disabled = false;
-    btn.textContent = originalText;
-    if (status !== 'success') loadProjects();
+  streamToTerminal(jobId, streamToken, () => {
+    setDetailButtonsDisabled(false);
+    refreshProjectDetail();
   });
 }
 
-function openLogModal(projectName) {
-  logTitle.textContent = projectName;
-  logStatus.textContent = 'en curso';
-  logStatus.className = 'status running';
-  logOutput.textContent = '';
-  logModal.classList.remove('hidden');
-}
-
-logClose.addEventListener('click', () => logModal.classList.add('hidden'));
-
-function streamLogs(jobId, streamToken, onDone) {
+function streamToTerminal(jobId, streamToken, onDone) {
   const url = `/api/deploy/${jobId}/stream?token=${encodeURIComponent(streamToken)}`;
   const source = new EventSource(url);
 
   source.addEventListener('log', (event) => {
-    logOutput.textContent += JSON.parse(event.data);
-    logOutput.scrollTop = logOutput.scrollHeight;
+    terminalOutput.textContent += JSON.parse(event.data);
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 
   source.addEventListener('done', (event) => {
     const { status } = JSON.parse(event.data);
-    logStatus.textContent = status === 'success' ? 'éxito' : 'falló';
-    logStatus.className = `status ${status}`;
+    terminalStatus.textContent = status === 'success' ? 'éxito' : 'falló';
+    terminalStatus.className = `status ${status}`;
     source.close();
-    onDone(status);
-    loadProjects();
+    onDone();
   });
 
-  source.onerror = () => {
-    source.close();
-  };
+  source.onerror = () => source.close();
 }
 
+detailDeployBtn.addEventListener('click', () => {
+  if (!currentProject) return;
+  runDetailAction('/api/deploy', { project: currentProject.name }, 'No se pudo iniciar la actualización');
+});
+
+branchSwitchBtn.addEventListener('click', () => {
+  if (!currentProject) return;
+  const branch = branchInput.value.trim();
+  if (!branch) {
+    detailError.textContent = 'Escribe el nombre de la rama';
+    return;
+  }
+  runDetailAction(projectApiUrl(currentProject.name, '/branch'), { branch }, 'No se pudo cambiar de rama');
+});
+
+// --- Edición de .env ---------------------------------------------------------
+
+envBtn.addEventListener('click', async () => {
+  if (!currentProject) return;
+  envError.textContent = '';
+  envModalName.textContent = currentProject.name;
+  envTextarea.value = '';
+  envTextarea.disabled = true;
+  envModal.classList.remove('hidden');
+
+  const res = await apiFetch(projectApiUrl(currentProject.name, '/env'));
+  envTextarea.disabled = false;
+  if (!res.ok) {
+    envError.textContent = 'No se pudo cargar el .env';
+    return;
+  }
+  const { content } = await res.json();
+  envTextarea.value = content;
+});
+
+envClose.addEventListener('click', () => envModal.classList.add('hidden'));
+
+envSaveBtn.addEventListener('click', async () => {
+  if (!currentProject) return;
+  envError.textContent = '';
+  envSaveBtn.disabled = true;
+
+  const res = await apiFetch(projectApiUrl(currentProject.name, '/env'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: envTextarea.value }),
+  });
+
+  envSaveBtn.disabled = false;
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    envError.textContent = errBody.error || 'No se pudo guardar el .env';
+    return;
+  }
+  envModal.classList.add('hidden');
+});
+
+// --- Arranque -----------------------------------------------------------------
+
 if (getToken()) {
-  tryEnter(getToken());
+  tryEnter(getToken(), { redirectHome: location.pathname === '/login' });
+} else {
+  showGate();
 }
