@@ -57,7 +57,10 @@
             <button id="branchSwitchBtn" class="action-btn">Cambiar rama</button>
           </div>
 
-          <button id="envBtn" class="action-btn hidden">Editar .env</button>
+          <div id="configFilesGroup" class="config-files hidden">
+            <span class="config-files-label">Archivos de configuración</span>
+            <div id="configFilesList" class="config-files-list"></div>
+          </div>
         </div>
 
         <div id="terminalWrap" class="terminal">
@@ -70,16 +73,16 @@
       </section>
     </main>
 
-    <div id="envModal" class="log-modal hidden">
+    <div id="configModal" class="log-modal hidden">
       <div class="log-box">
         <div class="log-header">
-          <span>.env &mdash; <span id="envModalName"></span></span>
-          <button id="envClose">Cerrar</button>
+          <span id="configModalName"></span>
+          <button id="configClose">Cerrar</button>
         </div>
-        <textarea id="envTextarea" class="env-textarea" spellcheck="false" autocomplete="off"></textarea>
+        <textarea id="configTextarea" class="env-textarea" spellcheck="false" autocomplete="off"></textarea>
         <div class="env-footer">
-          <span id="envError" class="error"></span>
-          <button id="envSaveBtn" class="action-btn primary">Guardar</button>
+          <span id="configError" class="error"></span>
+          <button id="configSaveBtn" class="action-btn primary">Guardar</button>
         </div>
       </div>
     </div>

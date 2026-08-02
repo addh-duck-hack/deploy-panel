@@ -27,19 +27,21 @@ const detailActions = document.getElementById('detailActions');
 const detailDeployBtn = document.getElementById('detailDeployBtn');
 const branchInput = document.getElementById('branchInput');
 const branchSwitchBtn = document.getElementById('branchSwitchBtn');
-const envBtn = document.getElementById('envBtn');
+const configFilesGroup = document.getElementById('configFilesGroup');
+const configFilesList = document.getElementById('configFilesList');
 const terminalWrap = document.getElementById('terminalWrap');
 const terminalStatus = document.getElementById('terminalStatus');
 const terminalOutput = document.getElementById('terminalOutput');
 
-const envModal = document.getElementById('envModal');
-const envModalName = document.getElementById('envModalName');
-const envTextarea = document.getElementById('envTextarea');
-const envError = document.getElementById('envError');
-const envSaveBtn = document.getElementById('envSaveBtn');
-const envClose = document.getElementById('envClose');
+const configModal = document.getElementById('configModal');
+const configModalName = document.getElementById('configModalName');
+const configTextarea = document.getElementById('configTextarea');
+const configError = document.getElementById('configError');
+const configSaveBtn = document.getElementById('configSaveBtn');
+const configClose = document.getElementById('configClose');
 
 let currentProject = null;
+let currentConfigPath = null;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -213,11 +215,34 @@ function resetTerminal() {
   terminalStatus.className = 'status';
 }
 
+// Para acciones que no pasan por el pipeline de jobs con streaming (ej.
+// guardar un archivo de configuración): registra un comando + resultado
+// en la terminal igual que si fuera un paso más del log.
+function logTerminalResult(commandLabel, message, success) {
+  terminalOutput.textContent += `\n$ ${commandLabel}\n${success ? '✔' : '✖'} ${message}\n`;
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
+  terminalStatus.textContent = success ? 'éxito' : 'falló';
+  terminalStatus.className = `status ${success ? 'success' : 'failed'}`;
+}
+
 function renderProjectDetail(project) {
   detailName.textContent = project.name;
   detailType.textContent = TYPE_LABELS[project.type] || project.type;
   detailBranch.textContent = project.branch || '(detached)';
-  envBtn.classList.toggle('hidden', !project.hasEnv);
+
+  configFilesList.innerHTML = '';
+  const files = project.configFiles || [];
+  configFilesGroup.classList.toggle('hidden', files.length === 0);
+  for (const relPath of files) {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn config-file-btn';
+    btn.textContent = relPath;
+    btn.title = relPath;
+    btn.disabled = project.locked;
+    btn.addEventListener('click', () => openConfigModal(relPath));
+    configFilesList.appendChild(btn);
+  }
+
   detailDeployBtn.disabled = project.locked;
   branchSwitchBtn.disabled = project.locked;
 }
@@ -232,7 +257,8 @@ async function showProjectDetailView(name) {
   detailBranch.textContent = '—';
   detailError.textContent = '';
   branchInput.value = '';
-  envBtn.classList.add('hidden');
+  configFilesGroup.classList.add('hidden');
+  configFilesList.innerHTML = '';
   detailActions.classList.remove('hidden');
   terminalWrap.classList.remove('hidden');
   resetTerminal();
@@ -344,46 +370,75 @@ branchSwitchBtn.addEventListener('click', () => {
   runDetailAction(projectApiUrl(currentProject.name, '/branch'), { branch }, 'No se pudo cambiar de rama');
 });
 
-// --- Edición de .env ---------------------------------------------------------
+// --- Edición de archivos de configuración -------------------------------
 
-envBtn.addEventListener('click', async () => {
+function openConfigModal(relPath) {
   if (!currentProject) return;
-  envError.textContent = '';
-  envModalName.textContent = currentProject.name;
-  envTextarea.value = '';
-  envTextarea.disabled = true;
-  envModal.classList.remove('hidden');
+  currentConfigPath = relPath;
+  configError.textContent = '';
+  configModalName.textContent = relPath;
+  configTextarea.value = '';
+  configTextarea.disabled = true;
+  configModal.classList.remove('hidden');
+  loadConfigFile(relPath);
+}
 
-  const res = await apiFetch(projectApiUrl(currentProject.name, '/env'));
-  envTextarea.disabled = false;
+async function loadConfigFile(relPath) {
+  const res = await apiFetch(projectApiUrl(currentProject.name, `/files?path=${encodeURIComponent(relPath)}`));
+  configTextarea.disabled = false;
+  if (res.status === 404) {
+    configError.textContent = 'Este archivo ya no existe en el proyecto';
+    return;
+  }
   if (!res.ok) {
-    envError.textContent = 'No se pudo cargar el .env';
+    configError.textContent = 'No se pudo cargar el archivo';
     return;
   }
   const { content } = await res.json();
-  envTextarea.value = content;
+  configTextarea.value = content;
+}
+
+configClose.addEventListener('click', () => {
+  configModal.classList.add('hidden');
+  currentConfigPath = null;
 });
 
-envClose.addEventListener('click', () => envModal.classList.add('hidden'));
+configSaveBtn.addEventListener('click', async () => {
+  if (!currentProject || !currentConfigPath) return;
+  configError.textContent = '';
+  configSaveBtn.disabled = true;
 
-envSaveBtn.addEventListener('click', async () => {
-  if (!currentProject) return;
-  envError.textContent = '';
-  envSaveBtn.disabled = true;
-
-  const res = await apiFetch(projectApiUrl(currentProject.name, '/env'), {
+  const res = await apiFetch(projectApiUrl(currentProject.name, '/files'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: envTextarea.value }),
+    body: JSON.stringify({ path: currentConfigPath, content: configTextarea.value }),
   });
 
-  envSaveBtn.disabled = false;
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    envError.textContent = errBody.error || 'No se pudo guardar el .env';
+  configSaveBtn.disabled = false;
+  const commandLabel = `guardar ${currentConfigPath}`;
+
+  if (res.status === 404) {
+    const message = 'Este archivo ya no existe en el proyecto';
+    configError.textContent = message;
+    logTerminalResult(commandLabel, message, false);
     return;
   }
-  envModal.classList.add('hidden');
+  if (res.status === 409) {
+    const message = 'Hay una operación en curso para este proyecto, intenta de nuevo cuando termine';
+    configError.textContent = message;
+    logTerminalResult(commandLabel, message, false);
+    return;
+  }
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const message = errBody.error || 'No se pudo guardar el archivo';
+    configError.textContent = message;
+    logTerminalResult(commandLabel, message, false);
+    return;
+  }
+  logTerminalResult(commandLabel, `Archivo "${currentConfigPath}" guardado con éxito`, true);
+  configModal.classList.add('hidden');
+  currentConfigPath = null;
 });
 
 // --- Arranque -----------------------------------------------------------------

@@ -8,6 +8,7 @@ const { requireAuth, safeEqual } = require('./src/auth');
 const { scanProjects } = require('./src/discovery');
 const { startDeploy, startCheckout, getJob, isLocked, isAtCapacity } = require('./src/jobs');
 const { getCurrentBranch } = require('./src/git');
+const { findConfigFiles, MAX_CONFIG_FILE_SIZE } = require('./src/configFiles');
 
 // Nombres de rama válidos para git checkout/fetch: sin espacios, sin ir
 // como flag (nada de "-x"), sin ".." para evitar refs raros.
@@ -34,7 +35,10 @@ app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
 app.use(helmet());
-app.use(express.json());
+// 1mb: debe cubrir archivos de configuración razonables y quedar en sync
+// con MAX_CONFIG_FILE_SIZE (src/configFiles.js) para que "se puede ver"
+// y "se puede guardar" usen siempre el mismo tope.
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const apiLimiter = rateLimit({
@@ -78,38 +82,47 @@ app.post('/api/projects/:name(.*)/branch', requireAuth, (req, res) => {
   res.json({ jobId: job.id, streamToken: job.streamToken });
 });
 
-app.get('/api/projects/:name(.*)/env', requireAuth, async (req, res) => {
+app.get('/api/projects/:name(.*)/files', requireAuth, async (req, res) => {
   const project = findProject(req.params.name);
   if (!project) {
     return res.status(404).json({ error: 'Proyecto no reconocido' });
   }
 
-  const envPath = path.join(project.path, '.env');
-  if (!fs.existsSync(envPath)) {
-    return res.status(404).json({ error: 'Este proyecto no tiene .env' });
+  const files = findConfigFiles(project.path);
+  if (!files.includes(req.query.path)) {
+    return res.status(404).json({ error: 'Archivo no encontrado' });
   }
 
-  const content = await fs.promises.readFile(envPath, 'utf8');
+  const filePath = path.join(project.path, req.query.path);
+  const stat = await fs.promises.stat(filePath);
+  if (stat.size > MAX_CONFIG_FILE_SIZE) {
+    return res.status(413).json({ error: 'El archivo es demasiado grande para editarlo aquí' });
+  }
+
+  const content = await fs.promises.readFile(filePath, 'utf8');
   res.json({ content });
 });
 
-app.post('/api/projects/:name(.*)/env', requireAuth, async (req, res) => {
+app.post('/api/projects/:name(.*)/files', requireAuth, async (req, res) => {
   const project = findProject(req.params.name);
   if (!project) {
     return res.status(404).json({ error: 'Proyecto no reconocido' });
   }
 
-  const envPath = path.join(project.path, '.env');
-  if (!fs.existsSync(envPath)) {
-    return res.status(404).json({ error: 'Este proyecto no tiene .env' });
+  const { path: relPath, content } = req.body || {};
+  const files = findConfigFiles(project.path);
+  if (!files.includes(relPath)) {
+    return res.status(404).json({ error: 'Archivo no encontrado' });
   }
-
-  const { content } = req.body || {};
   if (typeof content !== 'string') {
     return res.status(400).json({ error: 'Falta "content" en el body' });
   }
 
-  await fs.promises.writeFile(envPath, content, 'utf8');
+  if (isLocked(project.name)) {
+    return res.status(409).json({ error: 'Ya hay una operación en curso para este proyecto' });
+  }
+
+  await fs.promises.writeFile(path.join(project.path, relPath), content, 'utf8');
   res.json({ ok: true });
 });
 
@@ -120,14 +133,14 @@ app.get('/api/projects/:name(.*)', requireAuth, async (req, res) => {
   }
 
   const branch = await getCurrentBranch(project.path);
-  const hasEnv = fs.existsSync(path.join(project.path, '.env'));
+  const configFiles = findConfigFiles(project.path);
 
   res.json({
     name: project.name,
     type: project.type,
     branch,
     locked: isLocked(project.name),
-    hasEnv,
+    configFiles,
   });
 });
 
