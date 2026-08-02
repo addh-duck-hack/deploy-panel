@@ -10,9 +10,12 @@ const locks = new Set(); // nombres de proyecto con un deploy en curso
 
 // git pull primero: si falla, el stack ni se toca (sin downtime). down/up van
 // después para minimizar la ventana en la que el sitio queda caído.
+// down usa --rmi local para borrar la imagen construida en el deploy anterior
+// justo antes de que up --build genere la siguiente con el mismo tag — si no,
+// la imagen vieja queda "dangling" (<none>:<none>) y se acumulan huérfanas.
 const DEPLOY_STEPS = [
   ['git', ['pull', '--ff-only']],
-  ['docker', ['compose', 'down']],
+  ['docker', ['compose', 'down', '--rmi', 'local']],
   ['docker', ['compose', 'up', '-d', '--build']],
 ];
 

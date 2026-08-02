@@ -1,7 +1,8 @@
 # deploy-panel
 
-Panel web para disparar deploys (`git pull` → `docker compose down` → `docker compose up -d --build`)
-de tus proyectos en `/docker/` **a demanda**, desde cualquier dispositivo, sin entrar por SSH.
+Panel web para disparar deploys (`git pull` → `docker compose down --rmi local` →
+`docker compose up -d --build`) de tus proyectos en `/docker/` **a demanda**, desde cualquier
+dispositivo, sin entrar por SSH.
 
 El `git pull` va primero a propósito: si falla (red caída, conflicto), el stack ni se toca y el sitio
 sigue arriba con la versión anterior — el downtime solo ocurre si el pull tuvo éxito.
